@@ -133,7 +133,6 @@ class TextEditor:
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def on_text_change(self, event=None):
-        self.text_area.edit_modified(False)
         self.update_status()
 
     def update_status(self):
@@ -150,30 +149,37 @@ class TextEditor:
         if self.check_unsaved():
             self.text_area.delete("1.0", tk.END)
             self.current_file = None
+            self.text_area.edit_modified(False)
             self.update_status()
 
     def open_file(self):
-        if self.check_unsaved():
-            file_path = filedialog.askopenfilename(
-                filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
-            )
-            if file_path:
-                try:
-                    with open(file_path, "r", encoding="utf-8") as file:
-                        content = file.read()
-                        self.text_area.delete("1.0", tk.END)
-                        self.text_area.insert("1.0", content)
-                        self.current_file = file_path
-                        self.update_status()
-                except Exception as e:
-                    messagebox.showerror("Error", f"Could not open file: \n{e}")
+        if not self.check_unsaved():
+            return
+
+        file_path = filedialog.askopenfilename(
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
+        )
+        if file_path:
+            try:
+                with open(file_path, "r", encoding="utf-8") as file:
+                    content = file.read()
+                    self.text_area.delete("1.0", tk.END)
+                    self.text_area.insert("1.0", content)
+                    self.current_file = file_path
+                    self.text_area.edit_modified(False)
+                    self.update_status()
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open file: \n{e}")
 
     def save_file(self):
         if self.current_file:
             try:
                 with open(self.current_file, "w", encoding="utf-8") as file:
-                    content = self.text_area.get("1.0", tk.END).rstrip()
+                    content = self.text_area.get("1.0", tk.END).rstrip("\n")
                     file.write(content)
+
+                self.text_area.edit_modified(False)
                 self.update_status()
                 messagebox.showinfo("Saved", "File saved successfully!")
             except Exception as e:
@@ -189,9 +195,11 @@ class TextEditor:
         if file_path:
             try:
                 with open(file_path, "w", encoding="utf-8") as file:
-                    content = self.text_area.get("1.0", tk.END).rstrip()
+                    content = self.text_area.get("1.0", tk.END).rstrip("\n")
                     file.write(content)
+
                 self.current_file = file_path
+                self.text_area.edit_modified(False)
                 self.update_status()
                 messagebox.showinfo("Saved", "File saved successfully!")
             except Exception as e:
@@ -199,17 +207,20 @@ class TextEditor:
 
     def check_unsaved(self):
         """Check if there are unsaved changes before performing actions like New or Open."""
-        if self.text_area.edit_modified():
-            response = messagebox.askyesnocancel(
-                "Unsaved Changes",
-                "You have unsaved changes. Do you want to save them?",
-            )
-            if response:  # Yes
-                self.save_file()
-                return True
-            elif response is None:  # Cancel
-                return False
-        return True
+        if not self.text_area.edit_modified():
+            return True  # No unsaved changes, proceed normally
+
+        response = messagebox.askyesnocancel(
+            "Unsaved Changes",
+            "You have unsaved changes. Do you want to save them?",
+        )
+        if response is True:  # Yes - save and proceed only if successful
+            self.save_file()  # Check if file was actually saved
+            return not self.text_area.edit_modified()  # Still modified = save failed
+        elif response is False:  # No - discard changes and proceed
+            return True
+        else:  # None - Cancel
+            return False
 
 
 if __name__ == "__main__":
