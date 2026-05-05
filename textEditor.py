@@ -76,6 +76,18 @@ class TextEditor:
         ttk.Button(toolbar, text="Open", command=self.open_file).pack(
             side=tk.LEFT, padx=2
         )
+        ttk.Button(toolbar, text="Save", command=self.save_file).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(toolbar, text="Save As", command=self.save_as_file).pack(
+            side=tk.LEFT, padx=2
+        )
+        # ttk.Button(toolbar, text="Undo", command=self.edit_undo).pack(
+        #     side=tk.LEFT, padx=2
+        # )
+        # ttk.Button(toolbar, text="Redo", command=self.edit_redo).pack(
+        #     side=tk.LEFT, padx=2
+        # )
 
     def text_area(self):
         # Frame for text area
@@ -124,22 +136,70 @@ class TextEditor:
         if self.check_unsaved():
             self.text_area.delete("1.0", tk.END)
             self.current_file = None
-            # self.update_status
+            self.update_status()
 
     def open_file(self):
-        pass
+        if self.check_unsaved():
+            file_path = filedialog.askopenfilename(
+                filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")]
+            )
+            if file_path:
+                try:
+                    with open(file_path, "r", encoding="utf-8") as file:
+                        content = file.read()
+                        self.text_area.delete("1.0", tk.END)
+                        self.text_area.insert("1.0", content)
+                        self.current_file = file_path
+                        self.update_status()
+                except Exception as e:
+                    messagebox.showerror("Error", f"Could not open file: \n{e}")
 
     def save_file(self):
-        pass
+        if self.current_file:
+            try:
+                with open(self.current_file, "w", encoding="utf-8") as file:
+                    content = self.text_area.get("1.0", tk.END).rstrip()
+                    file.write(content)
+                self.update_status()
+                messagebox.showinfo("Saved", "File saved successfully!")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not save file: \n{e}")
+        else:
+            self.save_as_file()
 
     def save_as_file(self):
-        pass
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")],
+        )
+        if file_path:
+            try:
+                with open(file_path, "w", encoding="utf-8") as file:
+                    content = self.text_area.get("1.0", tk.END).rstrip()
+                    file.write(content)
+                self.current_file = file_path
+                self.update_status()
+                messagebox.showinfo("Saved", "File saved successfully!")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not save file: \n{e}")
 
     def check_unsaved(self):
-        pass
+        """Check if there are unsaved changes before performing actions like New or Open."""
+        if self.text_area.edit_modified():
+            response = messagebox.askyesnocancel(
+                "Unsaved Changes",
+                "You have unsaved changes. Do you want to save them?",
+            )
+            if response:  # Yes
+                self.save_file()
+                return True
+            elif response is None:  # Cancel
+                return False
+        return True
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     editor = TextEditor(root)
     root.mainloop()
+
