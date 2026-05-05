@@ -13,25 +13,32 @@ class TextEditor:
         self.current_file = None
 
         # Create Menu
-        self.app_menu()
+        self.create_app_menu()
 
         # Create Toolbar
-        self.toolbar()
+        self.create_toolbar()
 
         # Text Area with Scrollbar
-        self.text_area()
+        self.create_text_area()
 
         # Status Bar
-        self.status_bar()
+        self.create_status_bar()
 
         # Bind events
+        self.text_area.bind("<KeyRelease>", self.on_text_change)
+        self.text_area.bind(
+            "<Key>", lambda e: self.root.after(10, self.update_status)
+        )  # Immediate feedback
         self.text_area.bind("<<Modified>>", self.on_text_change)
+        self.text_area.bind("<ButtonRelease-1>", self.on_text_change)
+
+        self.update_status()  # Initialize status bar with correct info
 
     # ==================== MENU ====================
     def bind_shortcuts(self, key, command):
         self.root.bind(key, lambda e: command())
 
-    def app_menu(self):
+    def create_app_menu(self):
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
@@ -80,7 +87,7 @@ class TextEditor:
             command=lambda: self.text_area.event_generate("<<Paste>>"),
         )
 
-    def toolbar(self):
+    def create_toolbar(self):
         toolbar = ttk.Frame(self.root)
         toolbar.pack(fill=tk.X, pady=2)
 
@@ -103,7 +110,7 @@ class TextEditor:
         #     side=tk.LEFT, padx=2
         # )
 
-    def text_area(self):
+    def create_text_area(self):
         # Frame for text area
         text_frame = tk.Frame(self.root)
         text_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
@@ -122,7 +129,7 @@ class TextEditor:
         scrollbar.config(command=self.text_area.yview)
         self.text_area.config(yscrollcommand=scrollbar.set)
 
-    def status_bar(self):
+    def create_status_bar(self):
         self.status_bar = tk.Label(
             self.root,
             text="Ready | Untitled",
@@ -133,16 +140,27 @@ class TextEditor:
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def on_text_change(self, event=None):
-        self.update_status()
+        # Cancel any pending update
+        if hasattr(self, "_update_job") and self._update_job:
+            self.root.after_cancel(self._update_job)
+
+        self._update_job = self.root.after(80, self.update_status)
 
     def update_status(self):
-        words = len(self.text_area.get("1.0", tk.END).split())
-        status = f"Words: {words} | "
-        if self.current_file:
-            status += os.path.basename(self.current_file)
-        else:
-            status += "Untitled"
-        self.status_bar.config(text=status)
+        try:
+            content = self.text_area.get("1.0", tk.END)
+            line_count = int(self.text_area.index("end-1c").split(".")[0])
+            word_count = len(content.strip().split()) if content.strip() else 0
+            filename = (
+                os.path.basename(self.current_file) if self.current_file else "Untitled"
+            )
+
+            modified = " | * (Unsaved)" if self.text_area.edit_modified() else ""
+            status = f"Lines: {line_count} | Words: {word_count} | {filename}{modified}"
+            self.status_bar.config(text=status)
+
+        except Exception:
+            self.status_bar.config(text="Lines: 0 | Words: 0 | Untitled")
 
     # ==================== FILE METHODS ====================
     def new_file(self):
@@ -218,6 +236,7 @@ class TextEditor:
             self.save_file()  # Check if file was actually saved
             return not self.text_area.edit_modified()  # Still modified = save failed
         elif response is False:  # No - discard changes and proceed
+            self.text_area.edit_modified(False)  # Reset modified flag since we're discarding changes
             return True
         else:  # None - Cancel
             return False
