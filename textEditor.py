@@ -28,6 +28,9 @@ class TextEditor:
         self.text_area.bind("<<Modified>>", self.on_text_change)
 
     # ==================== MENU ====================
+    def bind_shortcuts(self, key, command):
+        self.root.bind(key, lambda e: command())
+
     def app_menu(self):
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
@@ -43,9 +46,20 @@ class TextEditor:
         file_menu.add_command(
             label="Save", accelerator="Ctrl+S", command=self.save_file
         )
-        file_menu.add_command(label="Save As...", command=self.save_as_file)
+        file_menu.add_command(
+            label="Save As...", accelerator="Ctrl+Shift+S", command=self.save_as_file
+        )
         file_menu.add_separator()
-        file_menu.add_command(label="Exit", command=self.root.quit)
+        file_menu.add_command(
+            label="Exit", accelerator="Ctrl+Q", command=self.root.quit
+        )
+
+        # =============== BIND THE SHORTCUTS ===============
+        self.bind_shortcuts("<Control-n>", self.new_file)
+        self.bind_shortcuts("<Control-o>", self.open_file)
+        self.bind_shortcuts("<Control-s>", self.save_file)
+        self.bind_shortcuts("<Control-S>", self.save_as_file)
+        self.bind_shortcuts("<Control-q>", self.root.quit)
 
         # Edit Menu
         edit_menu = tk.Menu(menubar, tearoff=0)
@@ -202,4 +216,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     editor = TextEditor(root)
     root.mainloop()
-
