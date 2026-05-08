@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
+import json
 import os
 
 
@@ -11,6 +12,14 @@ class TextEditor:
 
         # Current file path
         self.current_file = None
+
+        # Recent files list
+        self.recent_files = []
+        self.recen_files_limit = 10
+        self.config_file = os.path.join(
+            os.path.expanduser("~"), ".text_editor_config.json"
+        )
+        self.load_recent_files()
 
         # Create Menu
         self.create_app_menu()
@@ -50,6 +59,13 @@ class TextEditor:
         file_menu.add_command(
             label="Open...", accelerator="Ctrl+O", command=self.open_file
         )
+
+        self.recent_files_menu = tk.Menu(file_menu, tearoff=0)
+        file_menu.add_cascade(
+            label="Open Recent",
+            menu=self.recent_files_menu,
+        )
+
         file_menu.add_command(
             label="Save", accelerator="Ctrl+S", command=self.save_file
         )
@@ -64,6 +80,7 @@ class TextEditor:
         # =============== BIND THE SHORTCUTS ===============
         self.bind_shortcuts("<Control-n>", self.new_file)
         self.bind_shortcuts("<Control-o>", self.open_file)
+        self.bind_shortcuts("<Control-O>", self.open_recent_file)
         self.bind_shortcuts("<Control-s>", self.save_file)
         self.bind_shortcuts("<Control-S>", self.save_as_file)
         self.bind_shortcuts("<Control-q>", self.root.quit)
@@ -120,25 +137,6 @@ class TextEditor:
         ttk.Button(toolbar, text="Redo", command=self.edit_redo).pack(
             side=tk.LEFT, padx=2
         )
-
-    # def create_text_area(self):
-    #     # Frame for text area
-    #     text_frame = tk.Frame(self.root)
-    #     text_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-    #     # Scrollbar
-    #     scrollbar = tk.Scrollbar(text_frame)
-    #     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-    #     # Text Widget
-    #     self.text_area = tk.Text(
-    #         text_frame, wrap=tk.WORD, undo=True, font=("Consolas", 11)
-    #     )
-    #     self.text_area.pack(fill=tk.BOTH, expand=True)
-
-    #     # Configure scrollbar
-    #     scrollbar.config(command=self.text_area.yview)
-    #     self.text_area.config(yscrollcommand=scrollbar.set)
 
     def create_text_area(self):
         # Main frame
@@ -242,6 +240,7 @@ class TextEditor:
 
     def update_all(self):
         self.update_line_numbers()
+        self.update_recent_files_menu()
         self.update_status()
 
     # ==================== FILE METHODS ====================
@@ -267,10 +266,88 @@ class TextEditor:
                     self.text_area.insert("1.0", content)
                     self.current_file = file_path
                     self.text_area.edit_modified(False)
+                    self.add_to_recent_files(file_path)
                     self.update_all()
 
             except Exception as e:
                 messagebox.showerror("Error", f"Could not open file: \n{e}")
+
+    # ================== Open recent files =================
+    def load_recent_files(self):
+        try:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    self.recent_files = config.get("recent_files", [])
+        except Exception:
+            self.recent_files = []
+
+    def save_recent_files(self):
+        try:
+            data = {"recent_files": self.recent_files}
+            with open(self.config_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+        except Exception:
+            pass
+
+    def add_to_recent_files(self, file_path):
+        if not file_path or not os.path.exists(file_path):
+            return
+
+        # Remove if already in list to avoid duplicates
+        if file_path in self.recent_files:
+            self.recent_files.remove(file_path)
+
+        self.recent_files.insert(0, file_path)  # Add to the front
+
+        # Limit the recent files list
+        if len(self.recent_files) > self.recen_files_limit:
+            self.recent_files = self.recent_files[: self.recen_files_limit]
+
+        self.save_recent_files()
+        self.update_recent_files_menu()
+
+    def update_recent_files_menu(self):
+        self.recent_files_menu.delete(0, tk.END)
+
+        if not self.recent_files:
+            self.recent_files_menu.add_command(
+                label="No Recent Files", state="disabled"
+            )
+            return
+
+        for file_path in self.recent_files:
+            filename = os.path.basename(file_path)
+            self.recent_files_menu.add_command(
+                label=f"{filename}",
+                command=lambda path=file_path: self.open_recent_file(path),
+            )
+
+    def open_recent_file(self, file_path):
+        """Open a file from recent files list"""
+        if not self.check_unsaved():
+            return
+
+        try:
+            with open(file_path, "r", encoding="utf-8") as file:
+                content = file.read()
+                self.text_area.delete("1.0", tk.END)
+                self.text_area.insert("1.0", content)
+
+                self.current_file = file_path
+                self.text_area.edit_modified(False)
+
+                self.add_to_recent_files(file_path)  # Move to recent top
+                self.update_all()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not open file:\n{e}")
+            # Remove broken file from recent list
+            if file_path in self.recent_files:
+                self.recent_files.remove(file_path)
+                self.update_recent_files_menu()
+
+    # =============== End open recent files =================
 
     def save_file(self):
         if self.current_file:
