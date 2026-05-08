@@ -67,6 +67,9 @@ class TextEditor:
         self.bind_shortcuts("<Control-s>", self.save_file)
         self.bind_shortcuts("<Control-S>", self.save_as_file)
         self.bind_shortcuts("<Control-q>", self.root.quit)
+        self.bind_shortcuts("<Control-z>", self.edit_undo)
+        self.bind_shortcuts("<Control-Z>", self.edit_redo)
+        # Shift+Z is not working in some environments, using Ctrl+Shift+Z instead
 
         # Edit Menu
         edit_menu = tk.Menu(menubar, tearoff=0)
@@ -86,6 +89,12 @@ class TextEditor:
             accelerator="Ctrl+V",
             command=lambda: self.text_area.event_generate("<<Paste>>"),
         )
+        edit_menu.add_command(
+            label="Undo", accelerator="Ctrl+Z", command=self.edit_undo
+        )
+        edit_menu.add_command(
+            label="Redo", accelerator="Ctrl+Shift+Z", command=self.edit_redo
+        )
 
     def create_toolbar(self):
         toolbar = ttk.Frame(self.root)
@@ -103,12 +112,14 @@ class TextEditor:
         ttk.Button(toolbar, text="Save As", command=self.save_as_file).pack(
             side=tk.LEFT, padx=2
         )
-        # ttk.Button(toolbar, text="Undo", command=self.edit_undo).pack(
-        #     side=tk.LEFT, padx=2
-        # )
-        # ttk.Button(toolbar, text="Redo", command=self.edit_redo).pack(
-        #     side=tk.LEFT, padx=2
-        # )
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        ttk.Button(toolbar, text="Undo", command=self.edit_undo).pack(
+            side=tk.LEFT, padx=2
+        )
+        ttk.Button(toolbar, text="Redo", command=self.edit_redo).pack(
+            side=tk.LEFT, padx=2
+        )
 
     def create_text_area(self):
         # Frame for text area
@@ -223,6 +234,18 @@ class TextEditor:
             except Exception as e:
                 messagebox.showerror("Error", f"Could not save file: \n{e}")
 
+    def edit_undo(self):
+        try:
+            self.text_area.edit_undo()
+        except tk.TclError:
+            pass  # No more actions to undo
+
+    def edit_redo(self):
+        try:
+            self.text_area.edit_redo()
+        except tk.TclError:
+            pass  # No more actions to redo
+
     def check_unsaved(self):
         """Check if there are unsaved changes before performing actions like New or Open."""
         if not self.text_area.edit_modified():
@@ -236,7 +259,9 @@ class TextEditor:
             self.save_file()  # Check if file was actually saved
             return not self.text_area.edit_modified()  # Still modified = save failed
         elif response is False:  # No - discard changes and proceed
-            self.text_area.edit_modified(False)  # Reset modified flag since we're discarding changes
+            self.text_area.edit_modified(
+                False
+            )  # Reset modified flag since we're discarding changes
             return True
         else:  # None - Cancel
             return False
