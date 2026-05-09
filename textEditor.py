@@ -113,6 +113,30 @@ class TextEditor:
             label="Redo", accelerator="Ctrl+Shift+Z", command=self.edit_redo
         )
 
+        # Settings Menu
+        settings_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Settings", menu=settings_menu)
+
+        # theme submenu
+        theme_menu = tk.Menu(settings_menu, tearoff=0)
+        settings_menu.add_cascade(label="Theme", menu=theme_menu)
+        theme_menu.add_command(
+            label="Light", command=lambda: self.change_theme("light")
+        )
+        theme_menu.add_command(label="Dark", command=lambda: self.change_theme("dark"))
+        theme_menu.add_command(
+            label="System Default", command=lambda: self.change_theme("system")
+        )
+
+        # Font submenu
+        font_menu = tk.Menu(settings_menu, tearoff=0)
+        settings_menu.add_cascade(label="Font", menu=font_menu)
+
+        for size in [8, 10, 11, 12, 14, 16, 18, 20, 22, 24]:
+            font_menu.add_command(
+                label=f"Size {size}", command=lambda s=size: self.change_font_size(s)
+            )
+
     def create_toolbar(self):
         toolbar = ttk.Frame(self.root)
         toolbar.pack(fill=tk.X, pady=2)
@@ -415,6 +439,52 @@ class TextEditor:
             return True
         else:  # None - Cancel
             return False
+
+    def change_theme(self, theme_mode):
+        if theme_mode == "light":
+            bg_color = "#ffffff"
+            fg_color = "#000000"
+            line_number_bg = "#f0f0f0"
+            line_number_fg = "#666666"
+            root_bg = "#f0f0f0"
+
+        elif theme_mode == "dark":
+            bg_color = "#2e2e2e"
+            fg_color = "#ffffff"
+            line_number_bg = "#3c3c3c"
+            line_number_fg = "#aaaaaa"
+            root_bg = "#2b2b2b"
+
+        else:  # system default
+            bg_color = self.root.cget("bg")
+            fg_color = (
+                "#000000"
+                if self.root.tk.call("tk", "windowingsystem") == "win32"
+                else "#C0C0C0"
+            )
+            line_number_bg = "#f0f0f0"
+            line_number_fg = "#666666"
+            root_bg = "#f0f0f0"
+
+        self.root.config(bg=root_bg)
+
+        self.text_area.config(bg=bg_color, fg=fg_color, insertbackground=fg_color)
+
+        if hasattr(self, "line_numbers"):
+            self.line_numbers.config(bg=line_number_bg, fg=line_number_fg)
+
+    def change_font_size(self, size):
+        try:
+            new_font = ("Consolas", size)
+            self.text_area.config(font=new_font)
+            if hasattr(self, "line_numbers"):
+                self.line_numbers.config(font=new_font)
+
+                messagebox.showinfo(
+                    "Font Size Changed", f"Font size changed to {size}pt."
+                )
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not change font size: \n{e}")
 
 
 if __name__ == "__main__":
