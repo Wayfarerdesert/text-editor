@@ -311,8 +311,8 @@ class TextEditor:
             data = {"recent_files": self.recent_files}
             with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=4)
-        except Exception:
-            pass
+        except Exception as e:
+            print("Error saving config:", e)
 
     def add_to_recent_files(self, file_path):
         if not file_path or not os.path.exists(file_path):
